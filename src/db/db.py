@@ -1,7 +1,7 @@
 import pymysql
 import pymysql.cursors
 
-from config import MYSQL_DB, MYSQL_USER, MYSQL_HOST, MYSQL_PWD
+from config import MYSQL_DB, MYSQL_USER, MYSQL_HOST, MYSQL_PWD, MYSQL_PORT
 
 
 class Db:
@@ -12,6 +12,7 @@ class Db:
         self.conn = pymysql.connect(host=MYSQL_HOST,
                                     user=MYSQL_USER,
                                     password=MYSQL_PWD,
+                                    port=MYSQL_PORT,
                                     db=MYSQL_DB,
                                     charset='utf8mb4',
                                     cursorclass=pymysql.cursors.DictCursor)
@@ -38,8 +39,8 @@ class Db:
         """
         Количество строк в таблице с данным именем
         """
-        query = "SELECT COUNT(*) FROM %s"
-        self.request = self.query(query, table_name)
+        query = "SELECT COUNT(*) FROM `ebs_users`"
+        self.request = self.query(query)
         self.result = self.request.fetchone()
         print("Db().count(): Counted")
         return self.result
@@ -52,3 +53,6 @@ def test():
     table_name = "ebs_users"
     db = Db()
     print(db.count(table_name))
+
+
+test()
