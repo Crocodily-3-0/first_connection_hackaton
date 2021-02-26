@@ -3,16 +3,18 @@ from src.db.db import Db
 
 def get_rating(user_id):
     db = Db()
-    quiz = db.get_quiz(user_id)
-    score_quiz = quiz["score"]
-    max_score_quiz = quiz["total_score"]
-    final_quiz = db.get_final_quiz(user_id)
-    score_final_quiz = final_quiz["score"]
-    max_score_final_quiz = 0
-    if final_quiz["exam"]:
-        max_score_final_quiz = final_quiz["total_score"]
+    quizzes = db.get_quiz(user_id)  # get all quizes for this user
+    scores_quiz = 0  # scores for all quizes this user
+    for quiz in quizzes:
+        scores_quiz += quiz["score"]
 
-    return score_quiz + score_final_quiz + max_score_final_quiz + max_score_quiz
+    final_quiz = db.get_final_quiz(user_id)
+    score_final_quiz = final_quiz["scores"]
+    max_score_final_quiz = final_quiz["total_scores"]
+
+    pass_contents = db.count_from_content_by_user(user_id)
+
+    return scores_quiz + score_final_quiz + max_score_final_quiz + pass_contents
 
 
 def init():
@@ -21,15 +23,13 @@ def init():
     Проходим по всем пользователям, делаем проверку доступа, вычисляем рейтинг, добавляем в таблицу
     """
     db = Db()
-    try:
-        db.create_rating_table()
-        db.create_content_table()
-    except:
-        print("db probably exist")
+    db.create_rating_table()
+    db.create_content_table()
     users = db.get_users()
-    for user_id in users:
+    for user in users:
+        user_id = user["ebs_user_id"]
         db.get_new_stats(user_id)
-    for user_id in users:
+        db.get_new_stats_course(user_id)
         rating = get_rating(user_id)
         db.add_user_rating(user_id, rating)
     return 0
@@ -49,6 +49,5 @@ def main(user_id):
 
 
 if __name__ == '__main__':
-    user = 1
     init()
-    main(user)
+    main(user_id=1)
