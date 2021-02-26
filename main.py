@@ -1,6 +1,10 @@
 from src.db.db import Db
 
 
+rating_list = []
+user_rating = {}
+
+
 def get_rating(user_id):
     db = Db()
     quizzes = db.get_quiz(user_id)  # get all quizes for this user
@@ -23,15 +27,17 @@ def init():
     Проходим по всем пользователям, делаем проверку доступа, вычисляем рейтинг, добавляем в таблицу
     """
     db = Db()
-    db.create_rating_table()
-    db.create_content_table()
+    # db.create_rating_table()
+    # db.create_content_table()
     users = db.get_users()
     for user in users:
         user_id = user["ebs_user_id"]
         db.get_new_stats(user_id)
-        db.get_new_stats_course(user_id)
+        # db.get_new_stats_course(user_id)
         rating = get_rating(user_id)
-        db.add_user_rating(user_id, rating)
+        # db.add_user_rating(user_id, rating)
+        rating_list.append(rating)
+        user_rating[user_id] = rating
     return 0
 
 
@@ -39,15 +45,20 @@ def main(user_id):
     """
     Делаем запрос в таблицу rating. Если данного пользователя нет, значит он не выполнил условия.
     """
-    db = Db()
-    user_rating = db.get_user_from_rating(user_id)
-    if user_rating:
-        print(user_rating)
+    # db = Db()
+    # user_rating = db.get_user_from_rating(user_id)
+    rating = user_rating[user_id]
+    if rating:
+        print(f"Количество баллов студента в рейтинге: {rating}")
+        rating_list.sort()
+        print(f"Рейтинг студента: {rating_list.index(rating)}")
     else:
         print("Пользователь не участвует в рейтинге")
     return 0
 
 
 if __name__ == '__main__':
+    id = "70B6BB5B-3262-4AE0-A8DE-4633FBD804D2"
     init()
-    main(user_id=1)
+    print(f"Рейтинг пользователя с id={id}:")
+    main(user_id=id)

@@ -4,6 +4,9 @@ import pymysql.cursors
 from config import MYSQL_DB, MYSQL_USER, MYSQL_HOST, MYSQL_PWD, MYSQL_PORT
 
 
+user_content = {}
+
+
 class Db:
     def connect(self):
         """
@@ -35,16 +38,6 @@ class Db:
             self.conn.close()
         return cursor
 
-    def show_colums(self):
-        """
-        Количество строк в таблице с данным именем
-        """
-        query = "SHOW columns FROM `new_stats_course`"
-        self.request = self.query(query)
-        self.result = self.request.fetchall()
-        print("Db().show_colums(): Done")
-        return self.result
-
     def get_new_stats(self, user_id):
         sql = "SELECT `last_page`, `content_id` FROM `new_stats` WHERE `reader_id`=%s"
         self.request = self.query(sql, user_id)
@@ -53,7 +46,7 @@ class Db:
         stats = self.result
         for stat in stats:
             last = int(stat['last_page'])
-            content = int(stat['content_id'])
+            content = stat['content_id']
             sql = "SELECT `real_bnumber` FROM `Contents` WHERE `content_id`=%s"
             self.request = self.query(sql, content)
             self.result = self.request.fetchone()
@@ -62,9 +55,12 @@ class Db:
             if last == pages:
                 exist = self.count_from_content(content, user_id)
                 if not exist:
-                    sql = "INSERT INTO `content_table` (`user_id`, `content`) VALUES (%s, %s)"
-                    self.request = self.query(sql, (user_id, content))
-                    print("Db().add_content_table(): Added")
+                    user_content[user_id] = [content]
+                    # sql = "INSERT INTO `content_table` (`user_id`, `content`) VALUES (%s, %s)"
+                    # self.request = self.query(sql, (user_id, content))
+                    # print("Db().add_content_table(): Added")
+                else:
+                    user_content[user_id].append(content)
 
     def get_new_stats_course(self, user_id):
         sql = "SELECT `stat_id` FROM `new_stats` WHERE `reader_id`=%s"
@@ -73,17 +69,20 @@ class Db:
         print("Db().get_new_stats(): Done")
         stats = self.result
         for stat in stats:
-            stat_id = int(stat["stat_id"])
+            stat_id = stat["stat_id"]
             sql = "SELECT `course_id` FROM `new_stats_course` WHERE `stat_id`=%s"
             self.request = self.query(sql, stat_id)
             self.result = self.request.fetchone()
             print("Db().get_new_stats_course(): Done")
-            course_id = int(self.result["course_id"])
+            course_id = self.result["course_id"]
             exist = self.count_from_content(course_id, user_id)
             if not exist:
-                sql = "INSERT INTO `content_table` (`user_id`, `content`) VALUES (%s, %s)"
-                self.request = self.query(sql, (user_id, course_id))
-                print("Db().add_content_table(): Added")
+                user_content[user_id] = [course_id]
+                # sql = "INSERT INTO `content_table` (`user_id`, `content`) VALUES (%s, %s)"
+                # self.request = self.query(sql, (user_id, course_id))
+                # print("Db().add_content_table(): Added")
+            else:
+                user_content[user_id].append(course_id)
 
     def create_rating_table(self):
         query = "CREATE TABLE rating (" \
@@ -137,20 +136,26 @@ class Db:
         return False
 
     def count_from_content_by_user(self, user_id):
-        sql = "SELECT COUNT(*) FROM `content_table` WHERE `user_id`=%s"
-        self.request = self.query(sql, user_id)
-        self.result = self.request.fetchone()
-        print("Db().count_from_content_by_user(): Counted")
-        return int(self.result['COUNT(*)'])
+        if user_id in user_content.keys():
+            return len(user_content[user_id])
+        return 0
+        # sql = "SELECT COUNT(*) FROM `content_table` WHERE `user_id`=%s"
+        # self.request = self.query(sql, user_id)
+        # self.result = self.request.fetchone()
+        # print("Db().count_from_content_by_user(): Counted")
+        # return int(self.result['COUNT(*)'])
 
     def count_from_content(self, content_id, user_id):
-        sql = "SELECT COUNT(*) FROM `content_table` WHERE `content`=%s AND `user_id`=%s"
-        self.request = self.query(sql, (content_id, user_id))
-        self.result = self.request.fetchone()
-        print("Db().count_from_content(): Counted")
-        if self.result['COUNT(*)'] > 0:
+        if user_id in user_content.keys() and content_id in user_content[user_id]:
             return True
         return False
+        # sql = "SELECT COUNT(*) FROM `content_table` WHERE `content`=%s AND `user_id`=%s"
+        # self.request = self.query(sql, (content_id, user_id))
+        # self.result = self.request.fetchone()
+        # print("Db().count_from_content(): Counted")
+        # if self.result['COUNT(*)'] > 0:
+        #     return True
+        # return False
 
     def get_user_from_rating(self, user_id):
         exist = self.count_from_rating(user_id)
@@ -164,13 +169,13 @@ class Db:
             return 0
 
     def get_quiz(self, user_id):
-        sql = "SELECT `score`, `total_score` FROM `quiz_users` WHERE `user_id`=%s"
+        sql = "SELECT `score`, `total_score` FROM `quiz_users` WHERE `ebs_user_id`=%s"
         self.request = self.query(sql, user_id)
         self.result = self.request.fetchall()
         return self.result
 
     def get_final_quiz(self, user_id):
-        sql = "SELECT `score`, `total_score`, `data_id`, `exam_id` FROM `final_quiz_users` WHERE `user_id`=%s"
+        sql = "SELECT `score`, `total_score`, `data_id`, `exam_id` FROM `final_quiz_users` WHERE `ebs_user_id`=%s"
         self.request = self.query(sql, user_id)
         self.result = self.request.fetchall()
         scores = 0
@@ -191,8 +196,8 @@ class Db:
         sql = "SELECT `group_id` FROM `quiz_exams` WHERE `exam_id`=%s"
         self.request = self.query(sql, exam_id)
         self.result = self.request.fetchone()
-        group_id = int(self.result["group_id"])
-        sql = "SELECT `status` FROM `student_groups` WHERE (`user_id`=%s AND `student_group_id`=%s)"
+        group_id = self.result["group_id"]
+        sql = "SELECT `status` FROM `student_groups` WHERE (`ebs_user_id`=%s AND `student_group_id`=%s)"
         self.request = self.query(sql, (user_id, group_id))
         self.result = self.request.fetchone()
         return int(self.result["status"])
@@ -208,12 +213,24 @@ def test():
         print(res)
 
 
-test()
+# test()
 tables = [
     "ebs_users",
     "rating",
     "quiz_users",
     "final_quiz_users",
     "Contents",
-    "student_groups"
+    "student_groups",
+    "`ebs_users`"
 ]
+
+
+def show_colums(self):
+    """
+    Количество строк в таблице с данным именем
+    """
+    query = "SHOW columns FROM `new_stats_course`"
+    self.request = self.query(query)
+    self.result = self.request.fetchall()
+    print("Db().show_colums(): Done")
+    return self.result
